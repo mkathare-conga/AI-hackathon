@@ -1,0 +1,110 @@
+[
+  {
+    "invoice_id": "inv-1001",
+    "account_id": "acc-1001",
+    "contract_id": "ctr-1001",
+    "billing_period_start": "2025-12-01",
+    "billing_period_end": "2025-12-31",
+    "amount_billed": 100000.0,
+    "quantity": 1000
+  },
+  {
+    "invoice_id": "inv-1002",
+    "account_id": "acc-1001",
+    "contract_id": "ctr-1001",
+    "billing_period_start": "2026-01-01",
+    "billing_period_end": "2026-01-31",
+    "amount_billed": 100000.0,
+    "quantity": 1000
+  },
+  {
+    "invoice_id": "inv-1003",
+    "account_id": "acc-1001",
+    "contract_id": "ctr-1001",
+    "billing_period_start": "2026-02-01",
+    "billing_period_end": "2026-02-28",
+    "amount_billed": 100000.0,
+    "quantity": 1000
+  },
+  {
+    "invoice_id": "inv-1004",
+    "account_id": "acc-1001",
+    "contract_id": "ctr-1001",
+    "billing_period_start": "2026-03-01",
+    "billing_period_end": "2026-03-31",
+    "amount_billed": 100000.0,
+    "quantity": 1000
+  },
+  {
+    "invoice_id": "inv-2001",
+    "account_id": "acc-1002",
+    "contract_id": "ctr-1002",
+    "billing_period_start": "2026-04-01",
+    "billing_period_end": "2026-04-30",
+    "amount_billed": 37500.0,
+    "quantity": 150
+  },
+  {
+    "invoice_id": "inv-3001",
+    "account_id": "acc-1003",
+    "contract_id": "ctr-1003",
+    "billing_period_start": "2026-03-15",
+    "billing_period_end": "2026-04-14",
+    "amount_billed": 14832.0,
+    "quantity": 80
+  },
+  {
+    "invoice_id": "inv-4000",
+    "account_id": "acc-1004",
+    "contract_id": "ctr-1004",
+    "billing_period_start": "2025-12-01",
+    "billing_period_end": "2025-12-31",
+    "amount_billed": 96000.0,
+    "quantity": 600
+  },
+  {
+    "invoice_id": "inv-4001",
+    "account_id": "acc-1004",
+    "contract_id": "ctr-1004",
+    "billing_period_start": "2026-01-01",
+    "billing_period_end": "2026-01-31",
+    "amount_billed": 96000.0,
+    "quantity": 600
+  },
+  {
+    "invoice_id": "inv-4002",
+    "account_id": "acc-1004",
+    "contract_id": "ctr-1004",
+    "billing_period_start": "2026-02-01",
+    "billing_period_end": "2026-02-28",
+    "amount_billed": 96000.0,
+    "quantity": 600
+  },
+  {
+    "invoice_id": "inv-4003",
+    "account_id": "acc-1004",
+    "contract_id": "ctr-1004",
+    "billing_period_start": "2026-03-01",
+    "billing_period_end": "2026-03-31",
+    "amount_billed": 96000.0,
+    "quantity": 600
+  },
+  {
+    "invoice_id": "inv-4004",
+    "account_id": "acc-1004",
+    "contract_id": "ctr-1004",
+    "billing_period_start": "2026-04-01",
+    "billing_period_end": "2026-04-30",
+    "amount_billed": 96000.0,
+    "quantity": 600
+  },
+  {
+    "invoice_id": "inv-5001",
+    "account_id": "acc-1005",
+    "contract_id": "ctr-1005",
+    "billing_period_start": "2026-04-01",
+    "billing_period_end": "2026-04-30",
+    "amount_billed": 120000.0,
+    "quantity": 400
+  }
+]

@@ -1,0 +1,57 @@
+[
+  {
+    "contract_id": "ctr-1001",
+    "account_id": "acc-1001",
+    "product_name": "Conga CLM Enterprise",
+    "term_start": "2025-01-01",
+    "term_end": "2027-12-31",
+    "base_price": 100.0,
+    "currency": "USD",
+    "quantity": 1000,
+    "raw_contract_text": "REVENUE OPERATIONS DOSSIER SUMMARY\n\nNorthwind Manufacturing subscribes to Conga CLM Enterprise for 1,000 units. The effective commercial term for the next renewal is a 9% annual uplift beginning January 1, 2026, with 60 days notice. This value reflects the later commercial amendment and renewal pricing memo that supersede the earlier 5% master agreement language."
+  },
+  {
+    "contract_id": "ctr-1002",
+    "account_id": "acc-1002",
+    "product_name": "Conga Composer Premium",
+    "term_start": "2025-06-01",
+    "term_end": "2027-05-31",
+    "base_price": 250.0,
+    "currency": "USD",
+    "quantity": 150,
+    "raw_contract_text": "RENEWAL COMMERCIAL SUMMARY\n\nApex Health Systems renews Conga Composer Premium on June 1, 2026. The effective renewal package sets a 6% annual uplift with a 14 day notice requirement, based on the later renewal schedule and draft notice that override older 5% and 4% language in the underlying agreement history."
+  },
+  {
+    "contract_id": "ctr-1003",
+    "account_id": "acc-1003",
+    "product_name": "Conga Orchestrate Standard",
+    "term_start": "2025-03-15",
+    "term_end": "2027-03-14",
+    "base_price": 180.0,
+    "currency": "USD",
+    "quantity": 80,
+    "raw_contract_text": "ORDER FORM TERMS AND CONDITIONS\n\nThis Order Form and the Master Subscription Agreement between Conga Software, Inc. and BluePeak Retail Group are incorporated together and govern BluePeak's subscription to Conga Orchestrate Standard. This Order Form becomes effective on March 15, 2025.\n\n1. Subscription Commitment. Customer is purchasing 80 subscribed workflow seats for an initial two-year committed term ending March 14, 2027.\n\n2. Billing. Supplier will invoice monthly for the committed subscription quantities and any approved overages. Payment is due thirty (30) days from the invoice date.\n\n3. Renewal and Price Adjustment. Upon each annual renewal, the subscription charges will be subject to a 3% annual uplift. Supplier must provide 30 days notice before the applicable renewal date in order to implement the 3% annual uplift for the next renewal term.\n\n4. Precedence. If there is a conflict between this Order Form and the Master Subscription Agreement, this Order Form governs solely with respect to pricing, quantities, and service-specific commercial terms."
+  },
+  {
+    "contract_id": "ctr-1004",
+    "account_id": "acc-1004",
+    "product_name": "Conga Quote to Cash Advanced",
+    "term_start": "2025-01-01",
+    "term_end": "2027-12-31",
+    "base_price": 160.0,
+    "currency": "USD",
+    "quantity": 600,
+    "raw_contract_text": "REVENUE LEAKAGE RESOLUTION SUMMARY\n\nSummit Distribution Group subscribes to Conga Quote to Cash Advanced for 600 units. The controlling commercial position for the January 1, 2026 renewal is an 8% annual uplift with 60 days notice. Earlier MSA language set a 4% uplift and a later order form moved pricing to 6%, but the subsequent commercial amendment controls."
+  },
+  {
+    "contract_id": "ctr-1005",
+    "account_id": "acc-1005",
+    "product_name": "Conga Lifecycle Cloud",
+    "term_start": "2025-06-25",
+    "term_end": "2027-06-24",
+    "base_price": 300.0,
+    "currency": "USD",
+    "quantity": 400,
+    "raw_contract_text": "RENEWAL PREP SUMMARY\n\nRedwood BioLabs renews Conga Lifecycle Cloud on June 25, 2026. The current controlling term is a 5% annual uplift with 30 days notice. Earlier documents referenced 2% and 4% pricing adjustments, but the later commercial amendment is controlling for the next renewal."
+  }
+]
