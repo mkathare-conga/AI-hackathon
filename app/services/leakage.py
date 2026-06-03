@@ -288,6 +288,22 @@ def _resolve_dossier_annual_uplift(
         candidate_extractions=persisted_extractions,
     )
     if ai_resolved is not None:
+        # Safety net: if AI picked a lower-precedence document over a higher one,
+        # prefer the rule-based resolution (amendments > order_forms > msa).
+        if persisted_extractions:
+            rule_resolved = _resolve_annual_uplift_with_rules(contract, persisted_extractions)
+            if rule_resolved is not None:
+                ai_doc_id = ai_resolved.document_id
+                rule_doc_id = rule_resolved.document_id
+                documents_by_id = {
+                    doc.document_id: doc for doc in load_contract_documents(contract.contract_id)
+                }
+                ai_doc = documents_by_id.get(ai_doc_id) if ai_doc_id else None
+                rule_doc = documents_by_id.get(rule_doc_id) if rule_doc_id else None
+                ai_rank = _document_precedence_rank(ai_doc.document_type if ai_doc else None)
+                rule_rank = _document_precedence_rank(rule_doc.document_type if rule_doc else None)
+                if rule_rank > ai_rank:
+                    return rule_resolved
         return ai_resolved
 
     return _resolve_annual_uplift_with_rules(contract, persisted_extractions)
@@ -659,7 +675,7 @@ def get_risk_predictions(today: date | None = None) -> list[RiskPrediction]:
             continue
         notice_deadline = obligation.effective_date - timedelta(days=obligation.notice_window_days)
         days_until_deadline = (notice_deadline - as_of).days
-        if not (0 <= days_until_deadline <= 45):
+        if not (0 <= days_until_deadline <= 90):
             continue
 
         existing_events = events_by_contract.get(contract.contract_id, [])

@@ -253,6 +253,9 @@ def resolve_annual_uplift_from_contract_dossier(
         system_prompt=(
             "You resolve effective commercial uplift terms across a contract dossier. "
             "Use the contract record, amendments, renewal notices, and extracted candidates together. "
+            "CRITICAL RULE: Document type hierarchy MUST be respected — amendments ALWAYS supersede the MSA and order forms, "
+            "even if the amendment sets a LOWER rate than the MSA. An amendment that explicitly replaces or deletes a prior "
+            "pricing clause is the controlling term regardless of whether the new rate is higher or lower. "
             "Later amendments or explicit overrides supersede earlier language. "
             "When a candidate extraction already exists, treat it as a strong hint from a previously extracted clause, not as noise. "
             "If a later amendment or later version supports that candidate, return found=true and select it. "

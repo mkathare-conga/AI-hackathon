@@ -122,11 +122,11 @@ This Master Subscription Agreement is entered into between Conga Software, Inc. 
 
 This Master Subscription Agreement is entered into between Conga Software, Inc. and Redwood BioLabs for access to Conga Lifecycle Cloud.
 
-1. Term. The initial term begins on June 25, 2025 and continues through June 24, 2026. The agreement renews automatically for additional one-year terms unless either party provides notice of non-renewal.
+1. Term. The initial term begins on June 25, 2025 and continues through July 14, 2027. The agreement renews automatically for additional one-year terms unless either party provides notice of non-renewal.
 
 2. Fees and Payment. Customer will be billed monthly for 400 units at the pricing set forth in the applicable ordering document.
 
-3. Renewal Pricing Adjustment. Beginning with the first renewal term, recurring subscription charges are subject to a 2% annual uplift. Supplier may implement the 2% annual uplift with at least 30 days notice before the applicable renewal date.
+3. Renewal Pricing Adjustment. Beginning with the first renewal term on July 15, 2026, recurring subscription charges are subject to a 2% annual uplift. Supplier may implement the 2% annual uplift with at least 30 days notice before the applicable renewal date.
 
 4. Precedence. Later order forms, renewal schedules, and commercial amendments may supersede this agreement for pricing and renewal mechanics where expressly stated.$ctr1005$
     ),
@@ -448,10 +448,10 @@ VALUES
     ('ext-1402', 'ctr-1004', 'doc-1402', 'annual_uplift', 6.00, DATE '2026-01-01', 30, 'For Conga Quote to Cash Advanced, the executed order form overrides the master agreement pricing mechanics and sets a 6% annual uplift at renewal. Supplier may apply the 6% uplift by providing Customer at least 30 days notice before the renewal anniversary.', 2, 0.84, 'ai-pdf-native-text'),
     ('ext-1403', 'ctr-1004', 'doc-1403', 'annual_uplift', 8.00, DATE '2026-01-01', 60, 'The parties later executed a commercial amendment providing that recurring subscription charges are subject to an 8% annual uplift beginning January 1, 2026. Supplier may implement the 8% annual uplift upon providing Customer at least 60 days notice before the applicable renewal anniversary.', 2, 0.96, 'ai-docx-native-text'),
     ('ext-1404', 'ctr-1004', 'doc-1404', 'annual_uplift', 8.00, DATE '2026-01-01', 60, 'Revenue operations documented the 2026 renewal assumption as an 8% annual uplift with a 60 day notice requirement. The brief references the controlling commercial amendment as the source of record for pricing changes.', 1, 0.91, 'ai-docx-native-text'),
-    ('ext-1501', 'ctr-1005', 'doc-1501', 'annual_uplift', 2.00, DATE '2026-06-25', 30, 'Beginning with the first renewal term, recurring subscription charges are subject to a 2% annual uplift. Supplier may implement the 2% annual uplift with at least 30 days notice before the applicable renewal date.', 2, 0.76, 'ai-pdf-native-text'),
-    ('ext-1502', 'ctr-1005', 'doc-1502', 'annual_uplift', 4.00, DATE '2026-06-25', 21, 'The Redwood renewal schedule increases the upcoming renewal uplift from the base agreement level to 4% of recurring subscription fees. Supplier must provide at least 21 days notice before the renewal date to apply the 4% uplift.', 2, 0.82, 'ai-pdf-native-text'),
-    ('ext-1503', 'ctr-1005', 'doc-1503', 'annual_uplift', 5.00, DATE '2026-06-25', 30, 'The later Redwood commercial amendment sets the next renewal uplift at 5% and supersedes any inconsistent 2% or 4% pricing references. Supplier may implement the 5% uplift with at least 30 days notice before June 25, 2026.', 1, 0.95, 'ai-docx-native-text'),
-    ('ext-1504', 'ctr-1005', 'doc-1504', 'annual_uplift', 5.00, DATE '2026-06-25', 30, 'The renewal playbook confirms the operational target of a 5% annual uplift and identifies May 26, 2026 as the outbound notice deadline. The document is an internal planning artifact and does not confirm that notice has yet been sent.', 1, 0.89, 'ai-docx-native-text')
+    ('ext-1501', 'ctr-1005', 'doc-1501', 'annual_uplift', 2.00, DATE '2026-07-15', 30, 'Beginning with the first renewal term, recurring subscription charges are subject to a 2% annual uplift. Supplier may implement the 2% annual uplift with at least 30 days notice before the applicable renewal date.', 2, 0.76, 'ai-pdf-native-text'),
+    ('ext-1502', 'ctr-1005', 'doc-1502', 'annual_uplift', 4.00, DATE '2026-07-15', 21, 'The Redwood renewal schedule increases the upcoming renewal uplift from the base agreement level to 4% of recurring subscription fees. Supplier must provide at least 21 days notice before the renewal date to apply the 4% uplift.', 2, 0.82, 'ai-pdf-native-text'),
+    ('ext-1503', 'ctr-1005', 'doc-1503', 'annual_uplift', 5.00, DATE '2026-07-15', 30, 'The later Redwood commercial amendment sets the next renewal uplift at 5% and supersedes any inconsistent 2% or 4% pricing references. Supplier may implement the 5% uplift with at least 30 days notice before July 15, 2026.', 1, 0.95, 'ai-docx-native-text'),
+    ('ext-1504', 'ctr-1005', 'doc-1504', 'annual_uplift', 5.00, DATE '2026-07-15', 30, 'The renewal playbook confirms the operational target of a 5% annual uplift and identifies June 15, 2026 as the outbound notice deadline. The document is an internal planning artifact and does not confirm that notice has yet been sent.', 1, 0.89, 'ai-docx-native-text')
 ON CONFLICT (extraction_id) DO UPDATE SET
     contract_id = EXCLUDED.contract_id,
     document_id = EXCLUDED.document_id,

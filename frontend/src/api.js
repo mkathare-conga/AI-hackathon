@@ -28,6 +28,10 @@ export function getAIStatus() {
   return request("/api/system/ai-status");
 }
 
+export function getAccounts() {
+  return request("/api/accounts");
+}
+
 export function getCases() {
   return request("/api/cases");
 }
@@ -65,5 +69,67 @@ export function importContractDocument(contractId, documentType, file) {
   return request(`/api/contracts/${contractId}/documents/import`, {
     method: "POST",
     body: formData,
+  });
+}
+
+// ─── Setup API ────────────────────────────────────────────────────────────────
+
+export function setupListAccounts() {
+  return request("/api/setup/accounts");
+}
+
+export function setupCreateAccount(name) {
+  return request("/api/setup/accounts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function setupDeleteAccount(accountId) {
+  return request(`/api/setup/accounts/${accountId}`, { method: "DELETE" });
+}
+
+export function setupListContracts(accountId) {
+  return request(`/api/setup/accounts/${accountId}/contracts`);
+}
+
+export function setupCreateContract(accountId, data) {
+  return request(`/api/setup/accounts/${accountId}/contracts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
+export function setupDeleteContract(contractId) {
+  return request(`/api/setup/contracts/${contractId}`, { method: "DELETE" });
+}
+
+export function setupListInvoices(contractId) {
+  return request(`/api/setup/contracts/${contractId}/invoices`);
+}
+
+export function setupCreateInvoice(contractId, data) {
+  return request(`/api/setup/contracts/${contractId}/invoices`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
+export function setupDeleteInvoice(invoiceId) {
+  return request(`/api/setup/invoices/${invoiceId}`, { method: "DELETE" });
+}
+
+export function setupReset() {
+  return request("/api/setup/reset", { method: "POST" });
+}
+
+export function setupShiftRenewal(contractId, daysFromToday) {
+  return request(`/api/setup/contracts/${contractId}/shift-renewal`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ days_from_today: daysFromToday }),
   });
 }

@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from "react";
+import SetupPage from "./SetupPage.jsx";
+import DriftPage from "./DriftPage.jsx";
+import AmendmentImpactPage from "./AmendmentImpactPage.jsx";
 
 import {
   getContractAIBrief,
   getAIStatus,
+  getAccounts,
   getCase,
   getCases,
   getContractFacts,
@@ -23,8 +27,8 @@ const DOCUMENT_TYPE_OPTIONS = [
 
 const AGENT_ROSTER = [
   { id: "revenue-leakage", name: "Revenue Leakage Investigator", status: "Live", isActive: true, description: "Finds missed uplifts and renewal failures by resolving governing terms across contract documents." },
-  { id: "quote-drift", name: "Quote-to-Contract Drift Detector", status: "Planned", isActive: false, description: "Compares quoted terms to signed contract terms to catch negotiation drift." },
-  { id: "amendment-impact", name: "Amendment Impact Detector", status: "Planned", isActive: false, description: "Identifies downstream billing or obligation changes triggered by new amendments." },
+  { id: "quote-drift", name: "Quote-to-Contract Drift Detector", status: "Live", isActive: true, description: "Compares quoted terms to signed contract terms to catch negotiation drift." },
+  { id: "amendment-impact", name: "Amendment Impact Detector", status: "Live", isActive: true, description: "Identifies downstream billing or obligation changes triggered by new amendments." },
   { id: "billing-mismatch", name: "Billing vs Contract Mismatch", status: "Planned", isActive: false, description: "Cross-references live billing feeds against contracted rates and quantities." },
 ];
 
@@ -73,7 +77,7 @@ function sameObligationTerms(left, right) {
 
 /* ─── Account Sidebar ─────────────────────────────────────────────────────── */
 
-function AccountSidebar({ summary, cases, predictions, selectedId, onSelectCase, onSelectPrediction }) {
+function AccountSidebar({ summary, cases, predictions, accounts, selectedId, onSelectCase, onSelectPrediction, onSelectAccount }) {
   return (
     <aside className="sidebar">
       <div className="sidebar__header">
@@ -132,6 +136,35 @@ function AccountSidebar({ summary, cases, predictions, selectedId, onSelectCase,
           </button>
         ))}
       </div>
+
+      {(() => {
+        const caseAccountIds = new Set(cases.map(c => c.account_id));
+        const predAccountIds = new Set(predictions.map(p => p.account_id));
+        const others = accounts.filter(a => !caseAccountIds.has(a.account_id) && !predAccountIds.has(a.account_id) && a.primary_contract_id);
+        if (others.length === 0) return null;
+        return (
+          <>
+            <div className="sidebar__section-label">All Accounts</div>
+            <div className="sidebar__list">
+              {others.map((item) => (
+                <button
+                  key={item.account_id}
+                  className={`sidebar__item ${selectedId === item.account_id ? "sidebar__item--active" : ""}`}
+                  onClick={() => onSelectAccount(item)}
+                  type="button"
+                >
+                  <span className="sidebar__item-indicator sidebar__item-indicator--neutral">○</span>
+                  <div className="sidebar__item-content">
+                    <span className="sidebar__item-name">{item.name}</span>
+                    <span className="sidebar__item-amount">{item.contract_count} contract{item.contract_count !== 1 ? "s" : ""}</span>
+                    <span className="sidebar__item-type">No analysis yet</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
+        );
+      })()}
 
       <div className="sidebar__section-label">Platform Agent Roster</div>
       <div className="sidebar__roster">
@@ -432,8 +465,29 @@ function AIBrief({ brief, loading }) {
 
 /* ─── Detail Panel ────────────────────────────────────────────────────────── */
 
-function DetailPanel({ selectedType, detail, facts, loading, aiBrief, aiBriefLoading, importing, importMessage, onImport }) {
+function DetailPanel({ selectedType, detail, facts, loading, aiBrief, aiBriefLoading, importing, importMessage, onImport, accountName }) {
   if (loading) return <main className="detail-panel"><div className="loading">Loading…</div></main>;
+
+  // Account selected but no leakage case/prediction yet — show documents + upload
+  if (!detail && facts) {
+    return (
+      <main className="detail-panel">
+        <div className="detail-panel__header">
+          <div>
+            <h2>{accountName || "Account"}</h2>
+            <span className="detail-panel__product">{facts.contract.product_name}</span>
+          </div>
+          <span className="badge badge--lg badge--neutral">No analysis yet</span>
+        </div>
+        <section className="detail-card">
+          <p className="empty-note" style={{padding: "16px", textAlign: "left"}}>
+            Upload contract documents to run the leakage analysis. Once the AI processes the documents, this account will appear in the Leakage Cases or At-Risk Predictions queue.
+          </p>
+        </section>
+        <SourceDocuments facts={facts} obligation={null} importing={importing} importMessage={importMessage} onImport={onImport} />
+      </main>
+    );
+  }
 
   if (!detail || !facts) {
     return (
@@ -508,6 +562,7 @@ export default function App() {
   const [summary, setSummary] = useState(null);
   const [cases, setCases] = useState([]);
   const [predictions, setPredictions] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [selectedType, setSelectedType] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [detail, setDetail] = useState(null);
@@ -525,14 +580,15 @@ export default function App() {
 
     async function loadDashboard() {
       try {
-        const [aiStatusData, summaryPayload, casePayload, predictionPayload] = await Promise.all([
-          getAIStatus(), getDashboardSummary(), getCases(), getPredictions(),
+        const [aiStatusData, summaryPayload, casePayload, predictionPayload, accountsPayload] = await Promise.all([
+          getAIStatus(), getDashboardSummary(), getCases(), getPredictions(), getAccounts(),
         ]);
         if (ignore) return;
         setAiStatus(aiStatusData);
         setSummary(summaryPayload);
         setCases(casePayload);
         setPredictions(predictionPayload);
+        setAccounts(accountsPayload);
         // Do not auto-select — show platform brief as landing screen
       } catch (err) {
         if (!ignore) setError(err.message);
@@ -591,24 +647,43 @@ export default function App() {
     finally { setDetailLoading(false); setAiBriefLoading(false); }
   }
 
+  async function handleSelectAccount(item) {
+    if (!item.primary_contract_id) return;
+    try {
+      setError(""); setDocumentImportMessage(""); setDetailLoading(true);
+      setSelectedType("account"); setSelectedId(item.account_id);
+      setDetail(null); setAiBrief(null);
+      const contractFacts = await getContractFacts(item.primary_contract_id);
+      setFacts(contractFacts);
+    } catch (err) { setError(err.message); }
+    finally { setDetailLoading(false); }
+  }
+
   async function handleImportDocument({ documentType, file }) {
     if (!facts) throw new Error("Select a contract first.");
     try {
       setError(""); setDocumentImporting(true); setAiBriefLoading(true);
       const result = await importContractDocument(facts.contract.contract_id, documentType, file);
-      const [summaryPayload, casePayload, predictionPayload, contractFacts, briefPayload] = await Promise.all([
-        getDashboardSummary(), getCases(), getPredictions(),
+      const [summaryPayload, casePayload, predictionPayload, accountsPayload, contractFacts, briefPayload] = await Promise.all([
+        getDashboardSummary(), getCases(), getPredictions(), getAccounts(),
         getContractFacts(facts.contract.contract_id),
-        getContractAIBrief(facts.contract.contract_id, selectedType || "case"),
+        getContractAIBrief(facts.contract.contract_id, selectedType === "account" ? "contract" : (selectedType || "case")),
       ]);
-      setSummary(summaryPayload); setCases(casePayload); setPredictions(predictionPayload);
+      setSummary(summaryPayload); setCases(casePayload); setPredictions(predictionPayload); setAccounts(accountsPayload);
       setFacts(contractFacts); setAiBrief(briefPayload);
       setDocumentImportMessage(result.impact?.summary || result.message);
+      // If the account now has a case, upgrade the selection
+      if (selectedType === "account") {
+        const newCase = casePayload.find(c => c.contract_id === facts.contract.contract_id);
+        if (newCase) { setSelectedType("case"); setSelectedId(newCase.case_id); setDetail(newCase); }
+      }
       if (selectedType === "case") { const r = casePayload.find((i) => i.case_id === selectedId); if (r) setDetail(r); }
       if (selectedType === "prediction") { const r = predictionPayload.find((i) => i.prediction_id === selectedId); if (r) setDetail(r); }
     } catch (err) { setError(err.message); throw err; }
     finally { setDocumentImporting(false); setAiBriefLoading(false); }
   }
+
+  const [view, setView] = useState("investigate");
 
   if (loading) return <div className="app-shell"><div className="loading-page">Loading…</div></div>;
 
@@ -617,8 +692,39 @@ export default function App() {
       <header className="topbar">
         <div className="topbar__left">
           <h1>Commercial Execution Intelligence Platform</h1>
-          <span className="topbar__subtitle">Revenue Leakage Investigator</span>
+          <span className="topbar__subtitle">{
+            view === "drift" ? "Quote-to-Contract Drift Detector" :
+            view === "amendments" ? "Amendment Impact Detector" :
+            view === "setup" ? "Demo Setup" :
+            "Revenue Leakage Investigator"
+          }</span>
         </div>
+        <nav className="topbar__nav">
+          <button
+            className={`topbar__nav-btn${view === "investigate" ? " topbar__nav-btn--active" : ""}`}
+            onClick={() => setView("investigate")}
+          >
+            Investigate
+          </button>
+          <button
+            className={`topbar__nav-btn${view === "setup" ? " topbar__nav-btn--active" : ""}`}
+            onClick={() => setView("setup")}
+          >
+            Demo Setup
+          </button>
+          <button
+            className={`topbar__nav-btn${view === "drift" ? " topbar__nav-btn--active" : ""}`}
+            onClick={() => setView("drift")}
+          >
+            Drift Detector
+          </button>
+          <button
+            className={`topbar__nav-btn${view === "amendments" ? " topbar__nav-btn--active" : ""}`}
+            onClick={() => setView("amendments")}
+          >
+            Amendment Impact
+          </button>
+        </nav>
         <div className="topbar__right">
           <span className={`topbar__ai ${aiStatus?.enabled ? "topbar__ai--on" : ""}`}>
             {aiStatus?.enabled ? `AI: ${aiStatus.model || aiStatus.provider}` : "Rule-based mode"}
@@ -628,27 +734,38 @@ export default function App() {
 
       {error && <div className="error-banner">{error}</div>}
 
-      <div className="layout">
-        <AccountSidebar
-          summary={summary}
-          cases={cases}
-          predictions={predictions}
-          selectedId={selectedId}
-          onSelectCase={handleSelectCase}
-          onSelectPrediction={handleSelectPrediction}
-        />
-        <DetailPanel
-          selectedType={selectedType}
-          detail={detail}
-          facts={facts}
-          loading={detailLoading}
-          aiBrief={aiBrief}
-          aiBriefLoading={aiBriefLoading}
-          importing={documentImporting}
-          importMessage={documentImportMessage}
-          onImport={handleImportDocument}
-        />
-      </div>
+      {view === "setup" ? (
+        <SetupPage />
+      ) : view === "drift" ? (
+        <DriftPage />
+      ) : view === "amendments" ? (
+        <AmendmentImpactPage />
+      ) : (
+        <div className="layout">
+          <AccountSidebar
+            summary={summary}
+            cases={cases}
+            predictions={predictions}
+            accounts={accounts}
+            selectedId={selectedId}
+            onSelectCase={handleSelectCase}
+            onSelectPrediction={handleSelectPrediction}
+            onSelectAccount={handleSelectAccount}
+          />
+          <DetailPanel
+            selectedType={selectedType}
+            detail={detail}
+            facts={facts}
+            loading={detailLoading}
+            aiBrief={aiBrief}
+            aiBriefLoading={aiBriefLoading}
+            importing={documentImporting}
+            importMessage={documentImportMessage}
+            onImport={handleImportDocument}
+            accountName={accounts.find(a => a.account_id === selectedId)?.name}
+          />
+        </div>
+      )}
     </div>
   );
 }

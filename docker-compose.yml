@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-revenue_leakage}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-revenue_leakage}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
@@ -26,8 +26,8 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
     command: server /data --console-address ":9001"
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9010:9000"
+      - "9011:9001"
     volumes:
       - minio-data:/data
 
@@ -74,7 +74,7 @@ services:
       AI_MODEL: ${AI_MODEL:-}
       AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-30}
     ports:
-      - "8000:8000"
+      - "8001:8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz').read()"]
       interval: 10s
@@ -91,7 +91,7 @@ services:
       api:
         condition: service_healthy
     ports:
-      - "8080:80"
+      - "8081:80"
 
 volumes:
   postgres-data:

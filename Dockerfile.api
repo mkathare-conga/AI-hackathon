@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir -r requirements-runtime.txt
 
 COPY app ./app
 COPY data ./data
+COPY docker/postgres/init ./docker/postgres/init
 
 EXPOSE 8000
 
