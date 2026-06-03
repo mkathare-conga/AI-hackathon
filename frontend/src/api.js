@@ -72,6 +72,26 @@ export function importContractDocument(contractId, documentType, file) {
   });
 }
 
+export function getPricingDashboard() {
+  return request("/api/pricing/dashboard");
+}
+
+export function getPricingRecommendations() {
+  return request("/api/pricing/recommendations");
+}
+
+export function getPricingRecommendation(recommendationId) {
+  return request(`/api/pricing/recommendations/${recommendationId}`);
+}
+
+export function getBillingMismatchDashboard() {
+  return request("/api/billing-mismatch/dashboard");
+}
+
+export function getBillingMismatchContract(contractId) {
+  return request(`/api/billing-mismatch/contracts/${contractId}`);
+}
+
 // ─── Setup API ────────────────────────────────────────────────────────────────
 
 export function setupListAccounts() {

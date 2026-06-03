@@ -20,6 +20,8 @@ from app.services.leakage import (
 from app.services import setup as setup_svc
 from app.services import drift as drift_svc
 from app.services import amendment_impact as amendment_svc
+from app.services import pricing_recommendation as pricing_svc
+from app.services import billing_mismatch as billing_svc
 
 
 app = FastAPI(
@@ -394,4 +396,39 @@ async def amendment_analyze(
         )
     except (ValueError, RuntimeError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# ─── Pre-Sign Pricing Advisor API ─────────────────────────────────────────────
+
+@app.get("/api/pricing/dashboard")
+def pricing_dashboard():
+    return pricing_svc.get_pricing_dashboard()
+
+
+@app.get("/api/pricing/recommendations")
+def pricing_list_recommendations():
+    return pricing_svc.list_recommendations()
+
+
+@app.get("/api/pricing/recommendations/{recommendation_id}")
+def pricing_get_recommendation(recommendation_id: str):
+    recommendation = pricing_svc.get_recommendation(recommendation_id)
+    if recommendation is None:
+        raise HTTPException(status_code=404, detail="Pricing recommendation not found")
+    return recommendation
+
+
+# ─── Billing vs Contract Mismatch API ────────────────────────────────────────
+
+@app.get("/api/billing-mismatch/dashboard")
+def billing_mismatch_dashboard():
+    return billing_svc.get_billing_mismatch_dashboard()
+
+
+@app.get("/api/billing-mismatch/contracts/{contract_id}")
+def billing_mismatch_contract(contract_id: str):
+    detail = billing_svc.get_billing_mismatch_analysis(contract_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Billing mismatch analysis not found")
+    return detail
 
