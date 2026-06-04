@@ -3,7 +3,7 @@ import SetupPage from "./SetupPage.jsx";
 import DriftPage from "./DriftPage.jsx";
 import AmendmentImpactPage from "./AmendmentImpactPage.jsx";
 import PricingAdvisorPage from "./PricingAdvisorPage.jsx";
-import BillingMismatchPage from "./BillingMismatchPage.jsx";
+import BillingMismatchPage, { AnalysisDetail as BillingMismatchAnalysisDetail } from "./BillingMismatchPage.jsx";
 
 import {
   getContractAIBrief,
@@ -17,6 +17,7 @@ import {
   importContractDocument,
   getPrediction,
   getPredictions,
+  getBillingMismatchDashboard,
 } from "./api.js";
 
 const DOCUMENT_TYPE_OPTIONS = [
@@ -71,6 +72,15 @@ function labelExtractionMethod(value) {
 
 function formatConfidence(value) {
   return `${Math.round((value || 0) * 100)}%`;
+}
+
+function formatSignedCurrency(value) {
+  const normalized = Number(value || 0);
+  return `${normalized >= 0 ? "+" : "-"}${formatCurrency(Math.abs(normalized))}`;
+}
+
+function pluralize(value, singular, plural = `${singular}s`) {
+  return `${value} ${value === 1 ? singular : plural}`;
 }
 
 function sameObligationTerms(left, right) {
@@ -468,13 +478,13 @@ function AIBrief({ brief, loading }) {
 
 /* ─── Detail Panel ────────────────────────────────────────────────────────── */
 
-function DetailPanel({ selectedType, detail, facts, loading, aiBrief, aiBriefLoading, importing, importMessage, onImport, accountName }) {
-  if (loading) return <main className="detail-panel"><div className="loading">Loading…</div></main>;
+function DetailPanel({ selectedType, detail, facts, loading, aiBrief, aiBriefLoading, importing, importMessage, onImport, accountName, embedded = false }) {
+  if (loading) return <main className={`detail-panel${embedded ? " detail-panel--embedded" : ""}`}><div className="loading">Loading…</div></main>;
 
   // Account selected but no leakage case/prediction yet — show documents + upload
   if (!detail && facts) {
     return (
-      <main className="detail-panel">
+      <main className={`detail-panel${embedded ? " detail-panel--embedded" : ""}`}>
         <div className="detail-panel__header">
           <div>
             <h2>{accountName || "Account"}</h2>
@@ -494,7 +504,7 @@ function DetailPanel({ selectedType, detail, facts, loading, aiBrief, aiBriefLoa
 
   if (!detail || !facts) {
     return (
-      <main className="detail-panel">
+      <main className={`detail-panel${embedded ? " detail-panel--embedded" : ""}`}>
         <div className="platform-brief">
           <div className="platform-brief__hero">
             <span className="platform-brief__eyebrow">Active agent · Revenue Leakage Investigator</span>
@@ -538,7 +548,7 @@ function DetailPanel({ selectedType, detail, facts, loading, aiBrief, aiBriefLoa
   const candidateObligations = facts.candidate_obligations || [];
 
   return (
-    <main className="detail-panel">
+    <main className={`detail-panel${embedded ? " detail-panel--embedded" : ""}`}>
       <div className="detail-panel__header">
         <div>
           <h2>{detail.account_name}</h2>
@@ -558,6 +568,278 @@ function DetailPanel({ selectedType, detail, facts, loading, aiBrief, aiBriefLoa
   );
 }
 
+function WorkspaceModeToggle({ workspaceMode, onChange }) {
+  return (
+    <div className="workspace-mode" role="group" aria-label="Workspace mode">
+      <button
+        className={`workspace-mode__button${workspaceMode === "classic" ? " workspace-mode__button--active" : ""}`}
+        onClick={() => onChange("classic")}
+        type="button"
+      >
+        Classic UI
+      </button>
+      <button
+        className={`workspace-mode__button${workspaceMode === "unified" ? " workspace-mode__button--active" : ""}`}
+        onClick={() => onChange("unified")}
+        type="button"
+      >
+        Unified UI
+      </button>
+    </div>
+  );
+}
+
+function UnifiedQueueItem({ tone, tag, name, title, meta, amount, active, onClick }) {
+  return (
+    <button
+      className={`revenue-queue__item revenue-queue__item--${tone}${active ? " revenue-queue__item--active" : ""}`}
+      onClick={onClick}
+      type="button"
+    >
+      <div className="revenue-queue__item-main">
+        <div className="revenue-queue__item-head">
+          <span className="revenue-queue__item-name">{name}</span>
+          <span className={`revenue-queue__item-tag revenue-queue__item-tag--${tone}`}>{tag}</span>
+        </div>
+        <span className="revenue-queue__item-title">{title}</span>
+        <span className="revenue-queue__item-meta">{meta}</span>
+      </div>
+      <span className={`revenue-queue__item-amount revenue-queue__item-amount--${tone}`}>{amount}</span>
+    </button>
+  );
+}
+
+function UnifiedWorkspace({
+  summary,
+  cases,
+  predictions,
+  accounts,
+  billingDashboard,
+  selectedType,
+  selectedId,
+  detail,
+  facts,
+  loading,
+  aiBrief,
+  aiBriefLoading,
+  importing,
+  importMessage,
+  onImport,
+  onSelectCase,
+  onSelectPrediction,
+  onSelectBilling,
+  onSelectAccount,
+  accountName,
+  billingDetail,
+}) {
+  const billingAnalyses = billingDashboard?.analyses || [];
+  const flaggedBillingAnalyses = billingAnalyses.filter((item) => item.analysis.total_findings > 0 || item.analysis.status === "mismatch_detected");
+  const accountCoverage = [...accounts]
+    .filter((account) => account.primary_contract_id)
+    .sort((left, right) => left.name.localeCompare(right.name));
+  const caseAccountIds = new Set(cases.map((item) => item.account_id));
+  const predictionAccountIds = new Set(predictions.map((item) => item.account_id));
+  const billingAnalysesByAccount = new Map(billingAnalyses.map((item) => [item.analysis.account_id, item]));
+  const selectedAccountName = accountName || accountCoverage.find((item) => item.account_id === selectedId)?.name;
+
+  return (
+    <div className="revenue-workspace">
+      <div className="revenue-workspace__hero">
+        <div>
+          <h2 className="revenue-workspace__title">Revenue Integrity Workspace</h2>
+          <p className="revenue-workspace__subtitle">
+            Unified dashboard for missed uplift detection, renewal notice risk, billing mismatches,
+            and complete account coverage without leaving the operator workflow.
+          </p>
+        </div>
+      </div>
+
+      <div className="revenue-workspace__metrics">
+        <div className="revenue-workspace__metric revenue-workspace__metric--alert">
+          <span className="revenue-workspace__metric-value">{formatCurrency(summary?.total_estimated_missed_revenue)}</span>
+          <span className="revenue-workspace__metric-label">Missed revenue</span>
+        </div>
+        <div className="revenue-workspace__metric revenue-workspace__metric--warning">
+          <span className="revenue-workspace__metric-value">{formatCurrency(summary?.total_predicted_at_risk_revenue)}</span>
+          <span className="revenue-workspace__metric-label">Renewal risk</span>
+        </div>
+        <div className="revenue-workspace__metric revenue-workspace__metric--accent">
+          <span className="revenue-workspace__metric-value">{formatCurrency(billingDashboard?.total_underbilled_amount)}</span>
+          <span className="revenue-workspace__metric-label">Underbilled</span>
+        </div>
+        <div className="revenue-workspace__metric revenue-workspace__metric--neutral">
+          <span className="revenue-workspace__metric-value">{formatCurrency(billingDashboard?.total_overbilled_amount)}</span>
+          <span className="revenue-workspace__metric-label">Overbilled</span>
+        </div>
+        <div className="revenue-workspace__metric revenue-workspace__metric--count">
+          <span className="revenue-workspace__metric-value">{cases.length + predictions.length + flaggedBillingAnalyses.length}</span>
+          <span className="revenue-workspace__metric-label">
+            {`${cases.length} leakage · ${predictions.length} ${predictions.length === 1 ? "risk" : "risks"} · ${flaggedBillingAnalyses.length} billing`}
+          </span>
+        </div>
+      </div>
+
+      <div className="revenue-workspace__layout">
+        <aside className="revenue-workspace__queue">
+          <div className="revenue-workspace__queue-head">
+            <div>
+              <h3>Unified Investigation Queue</h3>
+              <p>Revenue leakage, risk predictions, billing mismatches, and every account in one place.</p>
+            </div>
+          </div>
+
+          <div className="revenue-workspace__legend" aria-hidden="true">
+            <span className="revenue-workspace__legend-pill revenue-workspace__legend-pill--leakage">Leakage</span>
+            <span className="revenue-workspace__legend-pill revenue-workspace__legend-pill--risk">Renewal risk</span>
+            <span className="revenue-workspace__legend-pill revenue-workspace__legend-pill--billing">Billing audit</span>
+            <span className="revenue-workspace__legend-pill revenue-workspace__legend-pill--account">All accounts</span>
+          </div>
+
+          <section className="revenue-workspace__section">
+            <div className="revenue-workspace__section-label">Leakage cases</div>
+            {cases.length === 0 ? (
+              <div className="revenue-workspace__empty">No leakage cases are open.</div>
+            ) : (
+              cases.map((item) => (
+                <UnifiedQueueItem
+                  key={`case-${item.case_id}`}
+                  tone="leakage"
+                  tag="Leakage"
+                  name={item.account_name}
+                  title="Missed uplift detected"
+                  meta="missed uplift"
+                  amount={formatCurrency(item.estimated_impact)}
+                  active={selectedType === "case" && selectedId === item.case_id}
+                  onClick={() => onSelectCase(item)}
+                />
+              ))
+            )}
+          </section>
+
+          <section className="revenue-workspace__section">
+            <div className="revenue-workspace__section-label">Risk predictions</div>
+            {predictions.length === 0 ? (
+              <div className="revenue-workspace__empty">No renewal risks are currently predicted.</div>
+            ) : (
+              predictions.map((item) => (
+                <UnifiedQueueItem
+                  key={`prediction-${item.prediction_id}`}
+                  tone="risk"
+                  tag="Risk"
+                  name={item.account_name}
+                  title="Renewal notice at risk"
+                  meta={`${item.days_until_deadline} days until deadline`}
+                  amount={formatCurrency(item.predicted_impact)}
+                  active={selectedType === "prediction" && selectedId === item.prediction_id}
+                  onClick={() => onSelectPrediction(item)}
+                />
+              ))
+            )}
+          </section>
+
+          <section className="revenue-workspace__section">
+            <div className="revenue-workspace__section-label">Billing audit</div>
+            {flaggedBillingAnalyses.length === 0 ? (
+              <div className="revenue-workspace__empty">No billing mismatch analyses are available.</div>
+            ) : (
+              flaggedBillingAnalyses.map((item) => {
+                const analysis = item.analysis;
+                const exposure = Math.max(analysis.total_underbilled_amount || 0, analysis.total_overbilled_amount || 0);
+                return (
+                  <UnifiedQueueItem
+                    key={`billing-${analysis.analysis_id}`}
+                    tone="billing"
+                    tag="Billing"
+                    name={analysis.account_name}
+                    title={analysis.product_name}
+                    meta={`${analysis.total_findings} findings · ${analysis.total_invoices_reviewed} invoices reviewed`}
+                    amount={formatCurrency(exposure)}
+                    active={selectedType === "billing" && selectedId === analysis.analysis_id}
+                    onClick={() => onSelectBilling(item)}
+                  />
+                );
+              })
+            )}
+          </section>
+
+          <section className="revenue-workspace__section">
+            <div className="revenue-workspace__section-label">All accounts</div>
+            {accountCoverage.length === 0 ? (
+              <div className="revenue-workspace__empty">No accounts are ready for review yet.</div>
+            ) : (
+              accountCoverage.map((item) => {
+                const billingItem = billingAnalysesByAccount.get(item.account_id);
+                const status = caseAccountIds.has(item.account_id)
+                  ? "Leakage case open"
+                  : predictionAccountIds.has(item.account_id)
+                    ? "Renewal risk open"
+                    : billingItem && billingItem.analysis.total_findings > 0
+                      ? `${pluralize(billingItem.analysis.total_findings, "billing finding")} open`
+                      : "No open issues";
+
+                return (
+                  <UnifiedQueueItem
+                    key={`account-${item.account_id}`}
+                    tone="account"
+                    tag="Account"
+                    name={item.name}
+                    title={pluralize(item.contract_count || 0, "contract")}
+                    meta={status}
+                    amount={pluralize(item.contract_count || 0, "contract")}
+                    active={selectedType === "account" && selectedId === item.account_id}
+                    onClick={() => onSelectAccount(item)}
+                  />
+                );
+              })
+            )}
+          </section>
+        </aside>
+
+        <div className="revenue-workspace__detail">
+          {selectedType === "billing" ? (
+            billingDetail ? (
+              <div className="revenue-workspace__detail-surface">
+                <div className="revenue-workspace__billing-header">
+                  <div>
+                    <h2>{billingDetail.analysis.account_name}</h2>
+                    <span>{billingDetail.analysis.product_name}</span>
+                  </div>
+                  <div className="revenue-workspace__billing-badges">
+                    <span className="badge badge--warning badge--lg">Billing audit</span>
+                    <span className="badge badge--neutral badge--lg">
+                      {formatSignedCurrency((billingDetail.analysis.total_underbilled_amount || 0) - (billingDetail.analysis.total_overbilled_amount || 0))}
+                    </span>
+                  </div>
+                </div>
+                <BillingMismatchAnalysisDetail detail={billingDetail} />
+              </div>
+            ) : (
+              <div className="revenue-workspace__detail-surface revenue-workspace__detail-surface--empty">
+                <h3>Select a billing audit</h3>
+                <p>Choose a billing item from the queue to review invoice mismatches next to leakage and risk investigations.</p>
+              </div>
+            )
+          ) : (
+            <DetailPanel
+              selectedType={selectedType}
+              detail={detail}
+              facts={facts}
+              loading={loading}
+              aiBrief={aiBrief}
+              aiBriefLoading={aiBriefLoading}
+              importing={importing}
+              importMessage={importMessage}
+              onImport={onImport}
+              accountName={selectedAccountName}
+              embedded
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── App Shell ───────────────────────────────────────────────────────────── */
 
 export default function App() {
@@ -566,10 +848,12 @@ export default function App() {
   const [cases, setCases] = useState([]);
   const [predictions, setPredictions] = useState([]);
   const [accounts, setAccounts] = useState([]);
+  const [billingDashboard, setBillingDashboard] = useState(null);
   const [selectedType, setSelectedType] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [detail, setDetail] = useState(null);
   const [facts, setFacts] = useState(null);
+  const [billingDetail, setBillingDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [aiBrief, setAiBrief] = useState(null);
@@ -577,14 +861,16 @@ export default function App() {
   const [error, setError] = useState("");
   const [documentImporting, setDocumentImporting] = useState(false);
   const [documentImportMessage, setDocumentImportMessage] = useState("");
+  const [workspaceMode, setWorkspaceMode] = useState("classic");
+  const [view, setView] = useState("investigate");
 
   useEffect(() => {
     let ignore = false;
 
     async function loadDashboard() {
       try {
-        const [aiStatusData, summaryPayload, casePayload, predictionPayload, accountsPayload] = await Promise.all([
-          getAIStatus(), getDashboardSummary(), getCases(), getPredictions(), getAccounts(),
+        const [aiStatusData, summaryPayload, casePayload, predictionPayload, accountsPayload, billingDashboardPayload] = await Promise.all([
+          getAIStatus(), getDashboardSummary(), getCases(), getPredictions(), getAccounts(), getBillingMismatchDashboard(),
         ]);
         if (ignore) return;
         setAiStatus(aiStatusData);
@@ -592,6 +878,7 @@ export default function App() {
         setCases(casePayload);
         setPredictions(predictionPayload);
         setAccounts(accountsPayload);
+        setBillingDashboard(billingDashboardPayload);
         // Do not auto-select — show platform brief as landing screen
       } catch (err) {
         if (!ignore) setError(err.message);
@@ -628,6 +915,7 @@ export default function App() {
     try {
       setError(""); setDocumentImportMessage(""); setDetailLoading(true); setAiBriefLoading(true);
       setSelectedType("case"); setSelectedId(item.case_id);
+      setBillingDetail(null);
       const caseDetail = await getCase(item.case_id);
       const [contractFacts, briefPayload] = await Promise.all([
         getContractFacts(caseDetail.contract_id), getContractAIBrief(caseDetail.contract_id, "case"),
@@ -641,6 +929,7 @@ export default function App() {
     try {
       setError(""); setDocumentImportMessage(""); setDetailLoading(true); setAiBriefLoading(true);
       setSelectedType("prediction"); setSelectedId(item.prediction_id);
+      setBillingDetail(null);
       const predDetail = await getPrediction(item.prediction_id);
       const [contractFacts, briefPayload] = await Promise.all([
         getContractFacts(predDetail.contract_id), getContractAIBrief(predDetail.contract_id, "prediction"),
@@ -655,11 +944,22 @@ export default function App() {
     try {
       setError(""); setDocumentImportMessage(""); setDetailLoading(true);
       setSelectedType("account"); setSelectedId(item.account_id);
-      setDetail(null); setAiBrief(null);
+      setDetail(null); setAiBrief(null); setBillingDetail(null);
       const contractFacts = await getContractFacts(item.primary_contract_id);
       setFacts(contractFacts);
     } catch (err) { setError(err.message); }
     finally { setDetailLoading(false); }
+  }
+
+  function handleSelectBilling(item) {
+    setError("");
+    setDocumentImportMessage("");
+    setSelectedType("billing");
+    setSelectedId(item.analysis.analysis_id);
+    setDetail(null);
+    setFacts(null);
+    setAiBrief(null);
+    setBillingDetail(item);
   }
 
   async function handleImportDocument({ documentType, file }) {
@@ -667,12 +967,12 @@ export default function App() {
     try {
       setError(""); setDocumentImporting(true); setAiBriefLoading(true);
       const result = await importContractDocument(facts.contract.contract_id, documentType, file);
-      const [summaryPayload, casePayload, predictionPayload, accountsPayload, contractFacts, briefPayload] = await Promise.all([
-        getDashboardSummary(), getCases(), getPredictions(), getAccounts(),
+      const [summaryPayload, casePayload, predictionPayload, accountsPayload, billingDashboardPayload, contractFacts, briefPayload] = await Promise.all([
+        getDashboardSummary(), getCases(), getPredictions(), getAccounts(), getBillingMismatchDashboard(),
         getContractFacts(facts.contract.contract_id),
         getContractAIBrief(facts.contract.contract_id, selectedType === "account" ? "contract" : (selectedType || "case")),
       ]);
-      setSummary(summaryPayload); setCases(casePayload); setPredictions(predictionPayload); setAccounts(accountsPayload);
+      setSummary(summaryPayload); setCases(casePayload); setPredictions(predictionPayload); setAccounts(accountsPayload); setBillingDashboard(billingDashboardPayload);
       setFacts(contractFacts); setAiBrief(briefPayload);
       setDocumentImportMessage(result.impact?.summary || result.message);
       // If the account now has a case, upgrade the selection
@@ -682,11 +982,22 @@ export default function App() {
       }
       if (selectedType === "case") { const r = casePayload.find((i) => i.case_id === selectedId); if (r) setDetail(r); }
       if (selectedType === "prediction") { const r = predictionPayload.find((i) => i.prediction_id === selectedId); if (r) setDetail(r); }
+      if (selectedType === "billing") {
+        const r = billingDashboardPayload.analyses.find((i) => i.analysis.analysis_id === selectedId);
+        if (r) setBillingDetail(r);
+      }
     } catch (err) { setError(err.message); throw err; }
     finally { setDocumentImporting(false); setAiBriefLoading(false); }
   }
 
-  const [view, setView] = useState("investigate");
+  const investigateLabel = workspaceMode === "unified" ? "Revenue Integrity Workspace" : "Revenue Leakage Investigator";
+  const viewLabel =
+    view === "drift" ? "Quote-to-Contract Drift Detector" :
+    view === "amendments" ? "Amendment Impact Detector" :
+    view === "pricing" ? "Pre-Sign Pricing Advisor" :
+    view === "billing" ? "Billing vs Contract Mismatch" :
+    view === "setup" ? "Demo Setup" :
+    investigateLabel;
 
   if (loading) return <div className="app-shell"><div className="loading-page">Loading…</div></div>;
 
@@ -695,21 +1006,14 @@ export default function App() {
       <header className="topbar">
         <div className="topbar__left">
           <h1>Commercial Execution Intelligence Platform</h1>
-          <span className="topbar__subtitle">{
-            view === "drift" ? "Quote-to-Contract Drift Detector" :
-            view === "amendments" ? "Amendment Impact Detector" :
-            view === "pricing" ? "Pre-Sign Pricing Advisor" :
-            view === "billing" ? "Billing vs Contract Mismatch" :
-            view === "setup" ? "Demo Setup" :
-            "Revenue Leakage Investigator"
-          }</span>
+          <span className="topbar__subtitle">{viewLabel}</span>
         </div>
         <nav className="topbar__nav">
           <button
             className={`topbar__nav-btn${view === "investigate" ? " topbar__nav-btn--active" : ""}`}
             onClick={() => setView("investigate")}
           >
-            Investigate
+            {workspaceMode === "unified" ? "Revenue Integrity" : "Investigate"}
           </button>
           <button
             className={`topbar__nav-btn${view === "setup" ? " topbar__nav-btn--active" : ""}`}
@@ -735,17 +1039,24 @@ export default function App() {
           >
             Pricing Advisor
           </button>
-          <button
-            className={`topbar__nav-btn${view === "billing" ? " topbar__nav-btn--active" : ""}`}
-            onClick={() => setView("billing")}
-          >
-            Billing Mismatch
-          </button>
+          {workspaceMode === "classic" && (
+            <button
+              className={`topbar__nav-btn${view === "billing" ? " topbar__nav-btn--active" : ""}`}
+              onClick={() => setView("billing")}
+            >
+              Billing Mismatch
+            </button>
+          )}
         </nav>
-        <div className="topbar__right">
-          <span className={`topbar__ai ${aiStatus?.enabled ? "topbar__ai--on" : ""}`}>
-            {aiStatus?.enabled ? `AI: ${aiStatus.model || aiStatus.provider}` : "Rule-based mode"}
-          </span>
+        <div className="topbar__controls">
+          <WorkspaceModeToggle workspaceMode={workspaceMode} onChange={setWorkspaceMode} />
+          <div className="topbar__right">
+            {aiStatus?.enabled && (
+              <span className={`topbar__ai ${aiStatus?.enabled ? "topbar__ai--on" : ""}`}>
+                {`AI: ${aiStatus.model || aiStatus.provider}`}
+              </span>
+            )}
+          </div>
         </div>
       </header>
 
@@ -761,6 +1072,30 @@ export default function App() {
         <PricingAdvisorPage />
       ) : view === "billing" ? (
         <BillingMismatchPage />
+      ) : workspaceMode === "unified" ? (
+        <UnifiedWorkspace
+          summary={summary}
+          cases={cases}
+          predictions={predictions}
+          accounts={accounts}
+          billingDashboard={billingDashboard}
+          selectedType={selectedType}
+          selectedId={selectedId}
+          detail={detail}
+          facts={facts}
+          loading={detailLoading}
+          aiBrief={aiBrief}
+          aiBriefLoading={aiBriefLoading}
+          importing={documentImporting}
+          importMessage={documentImportMessage}
+          onImport={handleImportDocument}
+          onSelectCase={handleSelectCase}
+          onSelectPrediction={handleSelectPrediction}
+          onSelectBilling={handleSelectBilling}
+          onSelectAccount={handleSelectAccount}
+          accountName={accounts.find(a => a.account_id === selectedId)?.name}
+          billingDetail={billingDetail}
+        />
       ) : (
         <div className="layout">
           <AccountSidebar

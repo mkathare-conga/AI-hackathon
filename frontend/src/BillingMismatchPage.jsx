@@ -169,7 +169,7 @@ function FindingCard({ finding }) {
 }
 
 
-function AnalysisDetail({ detail }) {
+export function AnalysisDetail({ detail }) {
   if (!detail) {
     return (
       <div className="billing-detail billing-detail--empty">
