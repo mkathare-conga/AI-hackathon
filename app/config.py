@@ -15,6 +15,8 @@ class AISettings:
 
     @property
     def enabled(self) -> bool:
+        if self.provider == "azure-foundry":
+            return bool(self.chat_completions_url)
         return bool(self.chat_completions_url and self.api_key)
 
 

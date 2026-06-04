@@ -80,7 +80,7 @@ def dashboard_summary():
 
 @app.get("/api/cases")
 def list_cases():
-    return get_leakage_cases()
+    return get_leakage_cases(use_ai=False)
 
 
 @app.get("/api/cases/{case_id}")
@@ -93,7 +93,7 @@ def case_detail(case_id: str):
 
 @app.get("/api/predictions")
 def list_predictions():
-    return get_risk_predictions()
+    return get_risk_predictions(use_ai=False)
 
 
 @app.get("/api/predictions/{prediction_id}")

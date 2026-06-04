@@ -202,15 +202,18 @@ def import_contract_document(
         page_number=page_number,
         extraction_method=f"ai-{extraction_method}",
     )
-    obligations = [ai_obligation] if ai_obligation is not None else extract_annual_uplift_from_text(
-        contract_id=contract.contract_id,
-        term_start=contract.term_start,
-        contract_text=extracted_text,
-        confidence_score=0.93,
-        document_id=document_id,
-        page_number=page_number,
-        extraction_method=extraction_method,
-    )
+    if ai_obligation is not None:
+        obligations = [ai_obligation]
+    else:
+        obligations = extract_annual_uplift_from_text(
+            contract_id=contract.contract_id,
+            term_start=contract.term_start,
+            contract_text=extracted_text,
+            confidence_score=0.93,
+            document_id=document_id,
+            page_number=page_number,
+            extraction_method=extraction_method,
+        )
     ingestion_status = "parsed" if obligations else "uploaded"
 
     client = get_minio_client()

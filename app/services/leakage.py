@@ -34,7 +34,11 @@ from app.services.documents import get_contract_document_bytes
 from app.services.ai_integration import generate_investigation_brief
 
 
-UPLIFT_PATTERN = re.compile(r"(?P<percent>\d+(?:\.\d+)?)%\s+(?:annual\s+)?(?:price\s+)?(?:increase|uplift)", re.IGNORECASE)
+UPLIFT_PATTERN = re.compile(
+    r"(?:(?:increase|uplift)\s+(?:by\s+)?(?P<percent1>\d+(?:\.\d+)?)%)"
+    r"|(?:(?P<percent2>\d+(?:\.\d+)?)%\s*(?:\([^)]*\)\s*)?(?:annual\s+)?(?:price\s+)?(?:increase|uplift))",
+    re.IGNORECASE,
+)
 NOTICE_PATTERN = re.compile(r"(?P<days>\d+)\s+days?\s+notice", re.IGNORECASE)
 PARAGRAPH_BREAK_PATTERN = re.compile(r"(?:\r?\n){2,}")
 COMMERCIAL_TERM_PATTERN = re.compile(
@@ -100,7 +104,7 @@ def extract_annual_uplift_from_text(
         return []
 
     notice_match = NOTICE_PATTERN.search(contract_text)
-    uplift_percent = float(uplift_match.group("percent"))
+    uplift_percent = float(uplift_match.group("percent1") or uplift_match.group("percent2"))
     notice_days = int(notice_match.group("days")) if notice_match else 30
     effective_date = term_start.replace(year=term_start.year + 1)
     clause_excerpt = _extract_clause_excerpt(contract_text, uplift_match.start())
@@ -321,14 +325,15 @@ def _get_governing_annual_uplift_cached(contract_id: str) -> ExtractedObligation
 
 def _compute_governing_annual_uplift(contract: Contract) -> ExtractedObligation | None:
     persisted_extractions = _load_persisted_annual_uplift(contract.contract_id)
-    resolved_extraction = _resolve_dossier_annual_uplift(contract, persisted_extractions)
-    if resolved_extraction is not None:
-        return resolved_extraction.model_copy(deep=True)
 
     if persisted_extractions:
         rule_resolved = _resolve_annual_uplift_with_rules(contract, persisted_extractions)
         if rule_resolved is not None:
             return rule_resolved.model_copy(deep=True)
+
+    resolved_extraction = _resolve_dossier_annual_uplift(contract, persisted_extractions)
+    if resolved_extraction is not None:
+        return resolved_extraction.model_copy(deep=True)
 
     ai_extraction = try_extract_annual_uplift(contract)
     if ai_extraction is not None:
@@ -537,6 +542,31 @@ def get_contract_ai_brief(
     expected_amount = metrics.get("expected_amount")
     actual_average = metrics.get("actual_average")
     estimated_impact = metrics.get("estimated_impact")
+
+    # If metrics are missing (focus=contract without post-effective invoices), use generic brief
+    if expected_amount is None or actual_average is None:
+        return AIInvestigationBrief(
+            focus=normalized_focus,
+            generation_mode="template-fallback",
+            overview=(
+                f"This contract has a {obligation.value:.0f}% annual uplift clause effective {obligation.effective_date.isoformat()}, "
+                f"requiring {obligation.notice_window_days} days notice before the renewal date."
+            ),
+            root_cause=(
+                f"Upload and analyze contract documents to determine whether the {obligation.value:.0f}% uplift "
+                f"has been correctly applied in billing."
+            ),
+            recommended_actions=[
+                "Upload the latest amendment or renewal notice to confirm the governing rate.",
+                "Compare post-renewal invoices against the contracted uplift amount.",
+            ],
+            evidence_points=[
+                f"Clause evidence: {obligation.source_clause_text}",
+                f"Obligation: {obligation.value:.0f}% uplift effective {obligation.effective_date.isoformat()}.",
+            ],
+            document_notes=_describe_documents(contract_id),
+        )
+
     return AIInvestigationBrief(
         focus=normalized_focus,
         generation_mode="template-fallback",
@@ -587,7 +617,7 @@ def get_contract_facts(contract_id: str) -> ContractFactsResponse | None:
     )
 
 
-def get_leakage_cases(today: date | None = None) -> list[LeakageCase]:
+def get_leakage_cases(today: date | None = None, *, use_ai: bool = True) -> list[LeakageCase]:
     as_of = today or date.today()
     accounts = {account.account_id: account for account in load_accounts()}
     invoices_by_contract = _group_invoices()
@@ -616,13 +646,15 @@ def get_leakage_cases(today: date | None = None) -> list[LeakageCase]:
 
         impact = round(sum(max(expected_amount - invoice.amount_billed, 0) for invoice in after_effective_invoices), 2)
         account = accounts[contract.account_id]
-        ai_explanation = explain_detected_case(
-            contract=contract,
-            obligation=obligation,
-            actual_average=actual_average,
-            expected_amount=expected_amount,
-            impact=impact,
-        )
+        ai_explanation = None
+        if use_ai:
+            ai_explanation = explain_detected_case(
+                contract=contract,
+                obligation=obligation,
+                actual_average=actual_average,
+                expected_amount=expected_amount,
+                impact=impact,
+            )
         cases.append(
             LeakageCase(
                 case_id=f"case-{contract.contract_id}",
@@ -655,13 +687,13 @@ def get_leakage_cases(today: date | None = None) -> list[LeakageCase]:
 
 
 def get_leakage_case(case_id: str, today: date | None = None) -> LeakageCase | None:
-    for item in get_leakage_cases(today=today):
+    for item in get_leakage_cases(today=today, use_ai=True):
         if item.case_id == case_id:
             return item
     return None
 
 
-def get_risk_predictions(today: date | None = None) -> list[RiskPrediction]:
+def get_risk_predictions(today: date | None = None, *, use_ai: bool = True) -> list[RiskPrediction]:
     as_of = today or date.today()
     accounts = {account.account_id: account for account in load_accounts()}
     events_by_contract: dict[str, list[str]] = defaultdict(list)
@@ -684,12 +716,14 @@ def get_risk_predictions(today: date | None = None) -> list[RiskPrediction]:
 
         predicted_impact = round(contract.base_price * contract.quantity * (obligation.value / 100), 2)
         account = accounts[contract.account_id]
-        ai_prediction = explain_prediction(
-            contract=contract,
-            obligation=obligation,
-            days_until_deadline=days_until_deadline,
-            predicted_impact=predicted_impact,
-        )
+        ai_prediction = None
+        if use_ai:
+            ai_prediction = explain_prediction(
+                contract=contract,
+                obligation=obligation,
+                days_until_deadline=days_until_deadline,
+                predicted_impact=predicted_impact,
+            )
         predictions.append(
             RiskPrediction(
                 prediction_id=f"prediction-{contract.contract_id}",
@@ -723,15 +757,15 @@ def get_risk_predictions(today: date | None = None) -> list[RiskPrediction]:
 
 
 def get_risk_prediction(prediction_id: str, today: date | None = None) -> RiskPrediction | None:
-    for item in get_risk_predictions(today=today):
+    for item in get_risk_predictions(today=today, use_ai=True):
         if item.prediction_id == prediction_id:
             return item
     return None
 
 
 def get_dashboard_summary(today: date | None = None) -> DashboardSummary:
-    cases = get_leakage_cases(today=today)
-    predictions = get_risk_predictions(today=today)
+    cases = get_leakage_cases(today=today, use_ai=False)
+    predictions = get_risk_predictions(today=today, use_ai=False)
     account_ids = {item.account_id for item in cases} | {item.account_id for item in predictions}
 
     return DashboardSummary(

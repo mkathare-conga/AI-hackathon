@@ -7,7 +7,6 @@ from collections import OrderedDict
 from copy import deepcopy
 from datetime import date
 from typing import Any
-from urllib import error, request
 
 from app.config import get_ai_settings
 from app.models import AIInvestigationBrief, AIStatus, Contract, ContractDocument, ExtractedObligation, InvoiceLine
@@ -17,6 +16,8 @@ LOGGER = logging.getLogger(__name__)
 JSON_BLOCK_PATTERN = re.compile(r"\{.*\}", re.DOTALL)
 CHAT_RESPONSE_CACHE_LIMIT = 64
 CHAT_RESPONSE_CACHE: OrderedDict[tuple[str, str, str, str, str], dict[str, Any]] = OrderedDict()
+
+_OPENAI_CLIENT: Any = None
 
 
 def _get_cached_chat_response(cache_key: tuple[str, str, str, str, str]) -> dict[str, Any] | None:
@@ -90,6 +91,34 @@ def get_ai_status() -> AIStatus:
     )
 
 
+def _get_openai_client():
+    global _OPENAI_CLIENT
+    if _OPENAI_CLIENT is not None:
+        return _OPENAI_CLIENT
+
+    settings = get_ai_settings()
+
+    from openai import OpenAI
+
+    if settings.provider == "azure-foundry" and not settings.api_key:
+        from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+
+        token_provider = get_bearer_token_provider(
+            DefaultAzureCredential(), "https://ai.azure.com/.default"
+        )
+        _OPENAI_CLIENT = OpenAI(
+            base_url=settings.chat_completions_url,
+            api_key=token_provider,
+        )
+    else:
+        _OPENAI_CLIENT = OpenAI(
+            base_url=settings.chat_completions_url,
+            api_key=settings.api_key,
+        )
+
+    return _OPENAI_CLIENT
+
+
 def _chat_completion_json(system_prompt: str, user_prompt: str) -> dict[str, Any] | None:
     settings = get_ai_settings()
     if not settings.enabled:
@@ -106,44 +135,22 @@ def _chat_completion_json(system_prompt: str, user_prompt: str) -> dict[str, Any
     if cached_response is not None:
         return cached_response
 
-    payload: dict[str, Any] = {
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        "temperature": 0.1,
-        "response_format": {"type": "json_object"},
-    }
-    if settings.model:
-        payload["model"] = settings.model
-
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {settings.api_key}",
-    }
-    if settings.provider == "github-models":
-        headers["Accept"] = "application/vnd.github+json"
-        headers["X-GitHub-Api-Version"] = "2026-03-10"
-    else:
-        headers["api-key"] = settings.api_key
-
-    http_request = request.Request(
-        settings.chat_completions_url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers=headers,
-        method="POST",
-    )
-
     try:
-        with request.urlopen(http_request, timeout=settings.timeout_seconds) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-    except (error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        client = _get_openai_client()
+        completion = client.chat.completions.create(
+            model=settings.model or "gpt-5-nano",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format={"type": "json_object"},
+            timeout=settings.timeout_seconds,
+        )
+    except Exception as exc:
         LOGGER.warning("AI request failed, falling back to deterministic logic: %s", exc)
         return None
 
-    content = payload.get("choices", [{}])[0].get("message", {}).get("content")
-    if isinstance(content, list):
-        content = "".join(part.get("text", "") for part in content if isinstance(part, dict))
+    content = completion.choices[0].message.content if completion.choices else None
     if not isinstance(content, str):
         return None
 
