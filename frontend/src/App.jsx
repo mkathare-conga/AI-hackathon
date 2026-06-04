@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import SetupPage from "./SetupPage.jsx";
 import DriftPage from "./DriftPage.jsx";
 import AmendmentImpactPage from "./AmendmentImpactPage.jsx";
+import PricingAdvisorPage from "./PricingAdvisorPage.jsx";
+import BillingMismatchPage from "./BillingMismatchPage.jsx";
 
 import {
   getContractAIBrief,
@@ -29,7 +31,8 @@ const AGENT_ROSTER = [
   { id: "revenue-leakage", name: "Revenue Leakage Investigator", status: "Live", isActive: true, description: "Finds missed uplifts and renewal failures by resolving governing terms across contract documents." },
   { id: "quote-drift", name: "Quote-to-Contract Drift Detector", status: "Live", isActive: true, description: "Compares quoted terms to signed contract terms to catch negotiation drift." },
   { id: "amendment-impact", name: "Amendment Impact Detector", status: "Live", isActive: true, description: "Identifies downstream billing or obligation changes triggered by new amendments." },
-  { id: "billing-mismatch", name: "Billing vs Contract Mismatch", status: "Planned", isActive: false, description: "Cross-references live billing feeds against contracted rates and quantities." },
+  { id: "pricing-advisor", name: "Pre-Sign Pricing Advisor", status: "Live", isActive: true, description: "Recommends stronger pre-sign pricing from same-company deal history while showing close-confidence tradeoffs and signature guidance." },
+  { id: "billing-mismatch", name: "Billing vs Contract Mismatch", status: "Live", isActive: true, description: "Cross-references live billing feeds against contracted rates and quantities." },
 ];
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -518,8 +521,8 @@ function DetailPanel({ selectedType, detail, facts, loading, aiBrief, aiBriefLoa
               <p>The AI reads every document on file — MSA, order forms, amendments, renewal notices — extracts each uplift clause, ranks them by document type and recency, and identifies which one legally controls.</p>
             </div>
             <div className="platform-brief__card">
-              <span className="platform-brief__card-label">Next agents on the roadmap</span>
-              <p>Quote-to-Contract Drift Detector, Amendment Impact Detector, and Billing vs Contract Mismatch Finder all reuse the same evidence layer without rebuilding ingestion or extraction logic.</p>
+              <span className="platform-brief__card-label">Live companion agents</span>
+              <p>Quote-to-Contract Drift Detector, Amendment Impact Detector, Pre-Sign Pricing Advisor, and Billing vs Contract Mismatch all reuse the same evidence layer without rebuilding ingestion or extraction logic.</p>
             </div>
           </div>
 
@@ -695,6 +698,8 @@ export default function App() {
           <span className="topbar__subtitle">{
             view === "drift" ? "Quote-to-Contract Drift Detector" :
             view === "amendments" ? "Amendment Impact Detector" :
+            view === "pricing" ? "Pre-Sign Pricing Advisor" :
+            view === "billing" ? "Billing vs Contract Mismatch" :
             view === "setup" ? "Demo Setup" :
             "Revenue Leakage Investigator"
           }</span>
@@ -724,6 +729,18 @@ export default function App() {
           >
             Amendment Impact
           </button>
+          <button
+            className={`topbar__nav-btn${view === "pricing" ? " topbar__nav-btn--active" : ""}`}
+            onClick={() => setView("pricing")}
+          >
+            Pricing Advisor
+          </button>
+          <button
+            className={`topbar__nav-btn${view === "billing" ? " topbar__nav-btn--active" : ""}`}
+            onClick={() => setView("billing")}
+          >
+            Billing Mismatch
+          </button>
         </nav>
         <div className="topbar__right">
           <span className={`topbar__ai ${aiStatus?.enabled ? "topbar__ai--on" : ""}`}>
@@ -740,6 +757,10 @@ export default function App() {
         <DriftPage />
       ) : view === "amendments" ? (
         <AmendmentImpactPage />
+      ) : view === "pricing" ? (
+        <PricingAdvisorPage />
+      ) : view === "billing" ? (
+        <BillingMismatchPage />
       ) : (
         <div className="layout">
           <AccountSidebar
